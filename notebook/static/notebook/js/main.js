@@ -22,12 +22,6 @@ Function.prototype.bind = Function.prototype.bind || bind ;
 
 requirejs([
     'jquery',
-    'bower_components/yjs/y',
-    'bower_components/y-array/y-array',
-    'bower_components/y-memory/y-memory',
-    'bower_components/y-webrtc/y-webrtc',
-    'bower_components/y-text/y-text',
-    //'bower_components/yjs2',
     'contents',
     'base/js/namespace',
     'notebook/js/notebook',
@@ -54,12 +48,6 @@ requirejs([
     'bidi/bidi'
 ], function(
     $,
-    Y,
-    yarray,
-    ymemory,
-    ywebrtc,
-    ytext,
-    //yjs2,
     contents_service,
     IPython,
     notebook,
@@ -87,13 +75,6 @@ requirejs([
     ) {
 
     "use strict";
-
-    yarray(Y);
-    ymemory(Y);
-    ywebrtc(Y);
-    ytext(Y);
-
-    //var yjs2 = yjs2.yjs2;
 
     // Pull typeahead from the global jquery object
     var typeahead = $.typeahead;
@@ -204,7 +185,6 @@ requirejs([
         notebook.set_autosave_interval(notebook.minimum_autosave_interval);
     });
 
-    IPython.Y = Y;
     IPython.page = page;
     IPython.notebook = notebook;
     IPython.contents = contents;
