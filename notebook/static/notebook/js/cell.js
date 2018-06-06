@@ -115,7 +115,7 @@ define([
         // for textcell though (in toJSON)
         this.attachments = {};
 
-        this.create_element();
+        this.create_element(options.cell_id2);
         if (this.element !== null) {
             this.element.data("cell", this);
             this.bind_events();

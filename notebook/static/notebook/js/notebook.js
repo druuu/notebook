@@ -1262,7 +1262,7 @@ define([
      * @param {integer} [index] - a valid index where to insert cell
      * @return {Cell|null} created cell or null
      */
-    Notebook.prototype.insert_cell_at_index = function(type, index){
+    Notebook.prototype.insert_cell_at_index = function(type, index, cell_id2){
 
         var ncells = this.ncells();
         index = Math.min(index, ncells);
@@ -1295,7 +1295,7 @@ define([
             };
             switch(type) {
             case 'code':
-                cell = new codecell.CodeCell(this.kernel, cell_options);
+                cell = new codecell.CodeCell(this.kernel, cell_options, cell_id2);
                 cell.set_input_prompt();
                 break;
             case 'markdown':
@@ -2627,7 +2627,7 @@ define([
         var new_cell = null;
         for (i=0; i<ncells; i++) {
             cell_data = new_cells[i];
-            new_cell = this.insert_cell_at_index(cell_data.cell_type, i);
+            new_cell = this.insert_cell_at_index(cell_data.cell_type, i, cell_data.metadata['cell_id2']);
             new_cell.fromJSON(cell_data);
             if (new_cell.cell_type === 'code' && !new_cell.output_area.trusted) {
                 trusted = false;

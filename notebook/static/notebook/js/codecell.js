@@ -76,7 +76,7 @@ define([
 
     var keycodes = keyboard.keycodes;
 
-    var CodeCell = function (kernel, options) {
+    var CodeCell = function (kernel, options, cell_id2) {
         /**
          * Constructor
          *
@@ -113,6 +113,7 @@ define([
         this.completer = null;
 
         Cell.apply(this,[{
+            cell_id2: cell_id2,
             config: options.config, 
             keyboard_manager: options.keyboard_manager, 
             events: this.events}]);
@@ -151,7 +152,7 @@ define([
     CodeCell.prototype = Object.create(Cell.prototype);
     
     /** @method create_element */
-    CodeCell.prototype.create_element = function () {
+    CodeCell.prototype.create_element = function (cell_id2) {
         Cell.prototype.create_element.apply(this, arguments);
         var that = this;
 
@@ -175,8 +176,10 @@ define([
             cell: this, 
             notebook: this.notebook});
         inner_cell.append(this.celltoolbar.element);
-        var input_area = $('<div/>').addClass('input_area');
-        this.code_mirror = new CodeMirror(input_area.get(0), this._options.cm_config);
+        //var input_area = $('<div/>').addClass('input_area');
+        //this.code_mirror = new CodeMirror(input_area.get(0), this._options.cm_config);
+        var input_area = window.shared_elements['input_area'+cell_id2];
+        this.code_mirror = window.shared_elements['codemirror'+cell_id2];
         // In case of bugs that put the keyboard manager into an inconsistent state,
         // ensure KM is enabled when CodeMirror is focused:
         this.code_mirror.on('focus', function () {
@@ -194,13 +197,17 @@ define([
         var output = $('<div></div>');
         cell.append(input).append(output);
         this.element = cell;
+
+        /************************ refactored ******************/
         this.output_area = new outputarea.OutputArea({
+            cell_id2: cell_id2,
             config: this.config,
             selector: output,
             prompt_area: true,
             events: this.events,
             keyboard_manager: this.keyboard_manager,
         });
+        /********************************************************/
         this.completer = new completer.Completer(this, this.events);
     };
 
