@@ -513,6 +513,12 @@ define([
         }
     };
 
+    Cell.prototype.fromJSON2 = function (data) {
+        if (data.metadata !== undefined) {
+            this.metadata = data.metadata;
+        }
+    };
+
 
     /**
      * can the cell be split into two cells (false if not deletable)
@@ -752,6 +758,16 @@ define([
     };
 
     UnrecognizedCell.prototype.fromJSON = function (data) {
+        this.data = data;
+        if (data.metadata !== undefined) {
+            this.metadata = data.metadata;
+        } else {
+            data.metadata = this.metadata;
+        }
+        this.element.find('.inner_cell').find("a").text(i18n.msg.sprintf(i18n.msg._("Unrecognized cell type: %s"), data.cell_type));
+    };
+
+    UnrecognizedCell.prototype.fromJSON2 = function (data) {
         this.data = data;
         if (data.metadata !== undefined) {
             this.metadata = data.metadata;

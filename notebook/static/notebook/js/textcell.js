@@ -217,6 +217,27 @@ define([
         }
     };
 
+    TextCell.prototype.fromJSON2 = function (data) {
+        Cell.prototype.fromJSON.apply(this, arguments);
+        if (data.cell_type === this.cell_type) {
+            if (data.attachments !== undefined) {
+                this.attachments = data.attachments;
+            }
+
+            if (data.source !== undefined) {
+                //this.set_text(data.source);
+                // make this value the starting point, so that we can only undo
+                // to this state, instead of a blank cell
+                //this.code_mirror.clearHistory();
+                // TODO: This HTML needs to be treated as potentially dangerous
+                // user input and should be handled before set_rendered.
+                //this.set_rendered(data.rendered || '');
+                //this.rendered = false;
+                //this.render();
+            }
+        }
+    };
+
     /** Generate JSON from cell
      * @param {bool} gc_attachments - If true, will remove unused attachments
      *               from the returned JSON

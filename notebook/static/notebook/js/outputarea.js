@@ -1066,6 +1066,29 @@ define([
         }
     };
 
+    OutputArea.prototype.fromJSON2 = function (outputs, metadata) {
+        var len = outputs.length;
+        metadata = metadata || {};
+
+        for (var i=0; i<len; i++) {
+            //this.append_output(outputs[i]);
+        }
+        if (metadata.collapsed !== undefined) {
+            if (metadata.collapsed) {
+                this.collapse();
+            } else {
+                this.expand();
+            }
+        }
+        if (metadata.scrolled !== undefined) {
+            this.scroll_state = metadata.scrolled;
+            if (metadata.scrolled) {
+                this.scroll_if_long();
+            } else {
+                this.unscroll_area();
+            }
+        }
+    };
     /**
      * Return for-saving version of outputs.
      * Excludes transient values.

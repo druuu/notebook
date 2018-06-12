@@ -2639,6 +2639,46 @@ define([
         }
     };
 
+    Notebook.prototype.fromJSON2 = function (data) {
+        var content = data.content;
+        var ncells = this.ncells();
+        var i;
+        for (i=0; i<ncells; i++) {
+            // Always delete cell 0 as they get renumbered as they are deleted.
+            this._unsafe_delete_cell(0);
+        }
+        // Save the metadata and name.
+        this.metadata = content.metadata;
+        this.notebook_name = data.name;
+        this.notebook_path = data.path;
+        var trusted = true;
+        
+        // Set the codemirror mode from language_info metadata
+        if (this.metadata.language_info !== undefined) {
+            var langinfo = this.metadata.language_info;
+            // Mode 'null' should be plain, unhighlighted text.
+            var cm_mode = langinfo.codemirror_mode || langinfo.name || 'null';
+            this.set_codemirror_mode(cm_mode);
+        }
+        
+        var new_cells = content.cells;
+        ncells = new_cells.length;
+        var cell_data = null;
+        var new_cell = null;
+        for (i=0; i<ncells; i++) {
+            cell_data = new_cells[i];
+            new_cell = this.insert_cell_at_index(cell_data.cell_type, i, cell_data.metadata['cell_id2']);
+            new_cell.fromJSON2(cell_data);
+            if (new_cell.cell_type === 'code' && !new_cell.output_area.trusted) {
+                trusted = false;
+            }
+        }
+        if (trusted !== this.trusted) {
+            this.trusted = trusted;
+            this.events.trigger("trust_changed.Notebook", trusted);
+        }
+    };
+
     /**
      * Dump this notebook into a JSON-friendly object.
      * 
@@ -3011,6 +3051,16 @@ define([
         );
     };
 
+    Notebook.prototype.load_notebook2 = function (notebook_path) {
+        this.notebook_path = notebook_path;
+        this.notebook_name = utils.url_path_split(this.notebook_path)[1];
+        this.events.trigger('notebook_loading.Notebook');
+        this.contents.get(notebook_path, {type: 'notebook'}).then(
+            $.proxy(this.load_notebook_success2, this),
+            $.proxy(this.load_notebook_error, this)
+        );
+    };
+
     /**
      * Success callback for loading a notebook from the server.
      * 
@@ -3022,6 +3072,155 @@ define([
         var failed, msg;
         try {
             this.fromJSON(data);
+        } catch (e) {
+            failed = e;
+            console.error("Notebook failed to load from JSON:", e);
+        }
+        if (failed || data.message) {
+            // *either* fromJSON failed or validation failed
+            var body = $("<div>");
+            var title;
+            if (failed) {
+                title = i18n.msg._("Notebook failed to load");
+                body.append($("<p>").text(
+                    i18n.msg._("The error was: ")
+                )).append($("<div>").addClass("js-error").text(
+                    failed.toString()
+                )).append($("<p>").text(
+                    i18n.msg._("See the error console for details.")
+                ));
+            } else {
+                title = i18n.msg._("Notebook validation failed");
+            }
+
+            if (data.message) {
+                if (failed) {
+                    msg = i18n.msg._("The notebook also failed validation:");
+                } else {
+                    msg = i18n.msg._("An invalid notebook may not function properly." +
+                    " The validation error was:");
+                }
+                body.append($("<p>").text(
+                    msg
+                )).append($("<div>").addClass("validation-error").append(
+                    $("<pre>").text(data.message)
+                ));
+            }
+
+            dialog.modal({
+                notebook: this,
+                keyboard_manager: this.keyboard_manager,
+                title: title,
+                body: body,
+                buttons : {
+                    OK : {
+                        "class" : "btn-primary"
+                    }
+                }
+            });
+        }
+        if (this.ncells() === 0) {
+            this.insert_cell_below('code');
+            this.edit_mode(0);
+        } else {
+            this.select(0);
+            this.handle_command_mode(this.get_cell(0));
+        }
+        this.set_dirty(false);
+        this.scroll_to_top();
+        this.writable = data.writable || false;
+        this.last_modified = new Date(data.last_modified);
+        // debug 484
+        this._last_modified = 'load-success:'+data.last_modified;
+        var nbmodel = data.content;
+        var orig_nbformat = nbmodel.metadata.orig_nbformat;
+        var orig_nbformat_minor = nbmodel.metadata.orig_nbformat_minor;
+        if (orig_nbformat !== undefined && nbmodel.nbformat !== orig_nbformat) {
+            var oldmsg = i18n.msg._("This notebook has been converted from an older notebook format" +
+            " to the current notebook format v(%s).");
+            var newmsg = i18n.msg._("This notebook has been converted from a newer notebook format" +
+            " to the current notebook format v(%s).");
+            if (nbmodel.nbformat > orig_nbformat) {
+                msg = i18n.msg.sprintf(oldmsg,nbmodel.nbformat);
+            } else {
+                msg = i18n.msg.sprintf(newmsg,nbmodel.nbformat);
+            }
+            msg += " ";
+            msg += i18n.msg._("The next time you save this notebook, the " +
+            "current notebook format will be used.");
+            
+            msg += " ";
+            if (nbmodel.nbformat > orig_nbformat) {
+                msg += i18n.msg._("Older versions of Jupyter may not be able to read the new format.");
+            } else {
+                msg += i18n.msg._("Some features of the original notebook may not be available.");
+            }
+            msg += " ";
+            msg += i18n.msg._("To preserve the original version, close the " +
+                "notebook without saving it.");
+            dialog.modal({
+                notebook: this,
+                keyboard_manager: this.keyboard_manager,
+                title : i18n.msg._("Notebook converted"),
+                body : msg,
+                buttons : {
+                    OK : {
+                        class : "btn-primary"
+                    }
+                }
+            });
+        } else if (this.nbformat_minor < nbmodel.nbformat_minor) {
+            this.nbformat_minor = nbmodel.nbformat_minor;
+        }
+
+        if (this.session === null) {
+            var kernel_name = utils.get_url_param('kernel_name');
+            if (kernel_name) {
+                this.kernel_selector.set_kernel(kernel_name);
+            } else if (this.metadata.kernelspec) {
+                this.kernel_selector.set_kernel(this.metadata.kernelspec);
+            } else if (this.metadata.language) {
+                // compat with IJulia, IHaskell, and other early kernels
+                // adopters that where setting a language metadata.
+                this.kernel_selector.set_kernel({
+                    name: i18n.msg._("(No name)"),
+                    language: this.metadata.language
+                  });
+                // this should be stored in kspec now, delete it.
+                // remove once we do not support notebook v3 anymore.
+                delete this.metadata.language;
+            } else {
+                // setting kernel via set_kernel above triggers start_session,
+                // otherwise start a new session with the server's default kernel
+                // spec_changed events will fire after kernel is loaded
+                this.start_session();
+            }
+        }
+        // load our checkpoint list
+        this.list_checkpoints();
+        
+        // load toolbar state
+        if (this.metadata.celltoolbar) {
+            celltoolbar.CellToolbar.global_show();
+            celltoolbar.CellToolbar.activate_preset(this.metadata.celltoolbar);
+        } else {
+            celltoolbar.CellToolbar.global_hide();
+        }
+        
+        if (!this.writable) {
+            this.set_autosave_interval(0);
+            this.events.trigger('notebook_read_only.Notebook');
+        }
+        
+        // now that we're fully loaded, it is safe to restore save functionality
+        this._fully_loaded = true;
+        this.events.trigger('notebook_loaded.Notebook');
+    };
+
+    Notebook.prototype.load_notebook_success2 = function (data) {
+        var failed, msg;
+        try {
+            this.fromJSON2(data);
         } catch (e) {
             failed = e;
             console.error("Notebook failed to load from JSON:", e);

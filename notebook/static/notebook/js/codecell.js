@@ -568,6 +568,21 @@ define([
         }
     };
 
+    CodeCell.prototype.fromJSON2 = function (data) {
+        Cell.prototype.fromJSON.apply(this, arguments);
+        if (data.cell_type === 'code') {
+            if (data.source !== undefined) {
+                //this.set_text(data.source);
+                // make this value the starting point, so that we can only undo
+                // to this state, instead of a blank cell
+                //this.code_mirror.clearHistory();
+                this.auto_highlight();
+            }
+            //this.set_input_prompt(data.execution_count);
+            this.output_area.trusted = data.metadata.trusted || false;
+            this.output_area.fromJSON(data.outputs, data.metadata);
+        }
+    };
 
     CodeCell.prototype.toJSON = function () {
         var data = Cell.prototype.toJSON.apply(this);
